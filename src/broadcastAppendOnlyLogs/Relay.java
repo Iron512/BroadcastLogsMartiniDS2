@@ -2,7 +2,9 @@ package broadcastAppendOnlyLogs;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import bsh.This;
@@ -12,22 +14,26 @@ import repast.simphony.space.continuous.ContinuousSpace;
 
 public class Relay {
 	private ContinuousSpace<Object> space;
-	private PerturbationManager aether;
-	private List<Perturbation> incomingPert;
+	private WavefrontManager aether;
+	private List<Wavefront> incomingPert;
 	
-	private int i = 0;
-	private boolean onlyone = true;
+	private Map<Relay, Integer> frontier;
+	
+	private int logicalClock = 1;
 	private int id;
-	private int pertGen;
+	private double pertGen;
+	private boolean stopGen;
 	
 	//Standard method definition (constructor, equals/hashcode, toString)
-	public Relay(ContinuousSpace<Object> space, PerturbationManager aether, int id, int pertGen) {
+	public Relay(ContinuousSpace<Object> space, WavefrontManager aether, int id, double pertGen) {
 		this.space = space;
 		this.aether = aether;
 		this.id = id;
 		this.pertGen = pertGen;
+		this.stopGen = false;
 		
-		this.incomingPert = new ArrayList<Perturbation>();
+		this.incomingPert = new ArrayList<Wavefront>();
+		this.frontier = new HashMap<Relay,Integer>();
 	}
 	@Override
     public boolean equals(Object o) {
@@ -65,33 +71,70 @@ public class Relay {
     }
     
 	//Custom methods
-    public void addPerturbation(Perturbation p) {
+    public void addPerturbation(Wavefront p) {
     	incomingPert.add(p);
     }
     
 	@ScheduledMethod(start = 1, interval = 1)
 	public void step() {
-		ArrayList<Perturbation> toRemove = new ArrayList<Perturbation>();
-		for (Perturbation p : incomingPert) {
-			Message msg = p.live();
+		ArrayList<Wavefront> toRemove = new ArrayList<Wavefront>();
+		for (Wavefront p : incomingPert) {
+			Perturbation msg = p.live();
 					
 			if (msg != null) {
 				senseMessage(msg);
 				toRemove.add(p);
 			}
 		}
-		for (Perturbation p : toRemove) {
+		for (Wavefront p : toRemove) {
 			incomingPert.remove(p);
 		}
 
-		if (RandomHelper.nextIntFromTo(0, 100) > 100-pertGen && onlyone) {
-			onlyone = false;
+		if (!this.stopGen && RandomHelper.nextDoubleFromTo(0.0, 100.0) > (100.0-pertGen)) {
 			System.out.println(this.toString() + "is generating a new perturbation");
-			aether.generatePerturbation(this, new Message(this, 1, 30));
+			aether.generatePerturbation(this, new Perturbation(this, logicalClock++, 30));
 		}
 	}
 	
-	public void senseMessage(Message msg) {
-		System.out.println(this.toString() + " received (" + i + ") " + msg.toString());
+	public void senseMessage(Perturbation msg) {
+		//System.out.println(
+		//		this.toString() + " received (" + logicalClock++ + ") " + msg.toString() + " --- " + frontier.get(msg.getSource()));
+	
+		Relay tmpR = msg.getSource();
+		if (!tmpR.equals(this)) { //No relays cares about message sent from himself
+			if (frontier.get(tmpR) == null) {
+				frontier.put(tmpR, 1);	
+			}
+			
+			if (frontier.get(tmpR) == msg.getRef()) {
+				aether.generatePerturbation(this, msg);
+				frontier.replace(tmpR, nextRef(msg.getRef()));
+			}
+		}
+	}
+	
+	public int nextRef(int ref) {
+		return ref+1;
+	}
+	
+	public void stopPerturbations() {
+		this.stopGen = true;
+	} 
+	
+	public void printFrontier() {
+		System.out.println(this.toString() + ": " + this.logicalClock);
+		frontier.forEach((k,v) -> {
+			System.out.println("    " + k.toString() + ": " + v);
+		});
+	}
+	
+	public boolean checkFrontiers(Relay cmp) {
+		boolean toRtn = true;
+		
+		//It is not really trivial (as it may look) to consider if two frontiers are the same.
+		//With a static network and no packet loss the task is easy, but in dynamic network this is not the same
+		
+		
+		return toRtn;
 	}
 }

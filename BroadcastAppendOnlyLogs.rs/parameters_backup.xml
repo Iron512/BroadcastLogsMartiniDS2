@@ -10,6 +10,11 @@
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
+				<parameter name="pertGen" displayName="Perturb. Gen. Probability (%)" type="int" 
+						defaultValue="10" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
 				<parameter name="nodeCount" displayName="Node Count" type="int" 
 						defaultValue="5" 
 						isReadOnly="false" 

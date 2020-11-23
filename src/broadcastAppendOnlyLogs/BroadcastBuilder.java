@@ -5,18 +5,21 @@ import repast.simphony.context.space.continuous.ContinuousSpaceFactory;
 import repast.simphony.context.space.continuous.ContinuousSpaceFactoryFinder;
 import repast.simphony.dataLoader.ContextBuilder;
 import repast.simphony.engine.environment.RunEnvironment;
+import repast.simphony.engine.schedule.ISchedule;
+import repast.simphony.engine.schedule.ScheduleParameters;
+import repast.simphony.engine.schedule.ScheduledMethod;
 import repast.simphony.parameter.Parameters;
 import repast.simphony.space.continuous.ContinuousSpace;
 import repast.simphony.space.continuous.RandomCartesianAdder;
 import repast.simphony.space.continuous.WrapAroundBorders;
 
 public class BroadcastBuilder implements ContextBuilder<Object>{
-
+	
+	
 	@Override
 	public Context build(Context<Object> context) {
 		int dstX = 50;
 		int dstY = 50;
-		
 		context.setId("BroadcastAppendOnlyLogs");
 		
 		//The first step is the definition of the space. I will stick to the well-known continuous space from tutorials,
@@ -28,6 +31,8 @@ public class BroadcastBuilder implements ContextBuilder<Object>{
 		
 		Parameters params = RunEnvironment.getInstance().getParameters();
 		
+		
+		int totalTick = params.getInteger("totalTick");
 		//defines the number of nodes acting in the scene
 		int nodeCount = params.getInteger("nodeCount");
 		//defines the distance traveled by any perturbation during a  tick.
@@ -35,7 +40,7 @@ public class BroadcastBuilder implements ContextBuilder<Object>{
 		//is almost trivial. Also the mapping into the 50x50 space is easily done. 
 		int dstPerTick = params.getInteger("dstPerTick");
 		//defines the probability of each relay of generating a perturbation
-		int pertGen = params.getInteger("pertGen");
+		double pertGen = params.getInteger("pertGen");
 	
 		Double maxLife = 0.0;
 		if (dstY > dstX) {
@@ -43,8 +48,8 @@ public class BroadcastBuilder implements ContextBuilder<Object>{
 		} else {
 			maxLife = dstX + 1.0;
 		}
-		
-		PerturbationManager aether = new PerturbationManager(dstPerTick, maxLife);
+
+		WavefrontManager aether = new WavefrontManager(totalTick,dstPerTick, maxLife);
 		context.add(aether);
 		
 		for (int i = 0; i < nodeCount; i++) {
