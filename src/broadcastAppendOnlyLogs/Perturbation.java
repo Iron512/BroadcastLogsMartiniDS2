@@ -1,13 +1,14 @@
 package broadcastAppendOnlyLogs;
 import java.util.Objects;
 
+//This class implements the perturbation as stricly defined in the Paper
 public class Perturbation {
-	private Relay source; 
-	private int ref;
-	//This substitutes the value in the message. I wanted to represent the payload of the message as a number of byte.
-	//In this way, in a future implementation of a throughput evaluation (narrowing for example the bandwidth), 
-	//the simulator can coherently adapt and execute finer real case scenarios.
-	private int dimension;
+	private Relay source; //The source that generated the perturbation
+	private int ref; // The reference of the perturbation. Just an incremental logical clock.
+	
+	private int dimension; //This substitutes the "value" field in the perturbation. I wanted to represent the payload
+	//of the message as a number of byte. In this way, in a possibly future implementation of a throughput evaluation 
+	//(narrowing for example the bandwidth), the simulator can already coherently adapt and execute finer real case scenarios.
 	
 	//Standard method definition (constructor, equals/hashcode, toString)
 	public Perturbation (Relay source, int ref, int dimension) {

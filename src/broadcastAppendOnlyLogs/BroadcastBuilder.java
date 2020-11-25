@@ -13,8 +13,10 @@ import repast.simphony.space.continuous.ContinuousSpace;
 import repast.simphony.space.continuous.RandomCartesianAdder;
 import repast.simphony.space.continuous.WrapAroundBorders;
 
+//This class is the whole wrapper developed as the Repast Symphony requires.
+//This and all the other classes are commented to aid the understanding of my coding process,
+//but the complete explanation for each of them is contained in the report.
 public class BroadcastBuilder implements ContextBuilder<Object>{
-	
 	
 	@Override
 	public Context build(Context<Object> context) {
