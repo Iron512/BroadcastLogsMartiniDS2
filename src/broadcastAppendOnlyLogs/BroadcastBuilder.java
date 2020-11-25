@@ -49,7 +49,7 @@ public class BroadcastBuilder implements ContextBuilder<Object>{
 			maxLife = dstX + 1.0;
 		}
 
-		WavefrontManager aether = new WavefrontManager(totalTick,dstPerTick, maxLife);
+		WavefrontManager aether = new WavefrontManager(totalTick,2,6, maxLife);
 		context.add(aether);
 		
 		for (int i = 0; i < nodeCount; i++) {

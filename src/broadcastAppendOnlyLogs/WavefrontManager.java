@@ -13,7 +13,8 @@ import repast.simphony.engine.schedule.ScheduledMethod;
 
 public class WavefrontManager {
 	private int totalTick;
-	private int dstPerTick;
+	private int minDistancePerTick;
+	private int maxDistancePerTick;
 	private Double maxWavelengthLife;
 	private Set<Relay> activeRelays;
 	
@@ -26,9 +27,12 @@ public class WavefrontManager {
 	private Map<Relay, Map<Relay, Double>> distances;
 	
 	//Standard method definition (constructor)
-	public WavefrontManager(int totalTick,int dstPerTick, Double maxWavelengthLife) {
+	public WavefrontManager(int totalTick,int minDistancePerTick, int maxDistancePerTick, Double maxWavelengthLife) {
 		this.totalTick = totalTick;
-		this.dstPerTick = dstPerTick;
+		
+		this.minDistancePerTick = minDistancePerTick;
+		this.maxDistancePerTick = maxDistancePerTick;
+		
 		this.maxWavelengthLife = maxWavelengthLife;
 		
 		this.activeRelays = new HashSet<Relay>();
@@ -83,14 +87,14 @@ public class WavefrontManager {
 	public void propagatePerturbation() {
 		newestWavefront.forEach((k,v) -> {
 			
-			Wavefront probe = new Wavefront(k, v, 0, maxWavelengthLife);
+			Wavefront probe = new Wavefront(k, v, 0, minDistancePerTick, maxDistancePerTick, maxWavelengthLife);
 			
 			if (!activeWavefront.contains(probe)) {
 				
 				for(Relay relay : activeRelays) {
 					if (!relay.equals(k)) {
 						relay.addPerturbation(
-							new Wavefront(k, v, 0, distances.get(k).get(relay)/dstPerTick));
+							new Wavefront(k, v, 0, minDistancePerTick, maxDistancePerTick, distances.get(k).get(relay)));
 					}	
 				}
 			}
@@ -101,7 +105,7 @@ public class WavefrontManager {
 	
 	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.FIRST_PRIORITY)
 	public void checkExecution() {
-		if (scheduler.getTickCount() == (totalTick-(maxWavelengthLife/dstPerTick))) {
+		if (scheduler.getTickCount() == (totalTick-(maxWavelengthLife))) {
 			//Stop the generation of messages, to allow the wavefront to syncronize
 			for(Relay relay : activeRelays) {
 				relay.stopPerturbations();
@@ -109,9 +113,17 @@ public class WavefrontManager {
 		}
 		
 		if (scheduler.getTickCount() >= totalTick) {
+			//take one random relay as the ground truth for our frontier.
+			Relay ground = activeRelays.iterator().next();
+			boolean result = true;
+			
 			for(Relay relay : activeRelays) {
 				relay.printFrontier();
+				//If just any relay's frontier is different from the ground truth the frontier are disaligned,
+				//therefore the algorithm is faulty.
+				result &= ground.checkFrontiers(relay);
 			}
+			System.out.println("Result: " + result);
 			RunEnvironment.getInstance().endRun();
 		}
 	}

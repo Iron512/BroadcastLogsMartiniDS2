@@ -2,17 +2,26 @@ package broadcastAppendOnlyLogs;
 
 import java.util.Objects;
 
+import repast.simphony.random.RandomHelper;
+
 public class Wavefront {
 	private Relay generator;
 	private Perturbation msg;
+	
 	private int msgLife;
+	private int minDistancePerTick;
+	private int maxDistancePerTick;
 	private Double msgDistance;
 
 	//Standard method definition (constructor, equals/hashcode, toString)
-	public Wavefront(Relay generator, Perturbation msg, int msgLife, Double msgDistance) {
+	public Wavefront(Relay generator, Perturbation msg, int msgLife, int minDistancePerTick, int maxDistancePerTick, Double msgDistance) {
 		this.generator = generator;
 		this.msg = msg;
+		
 		this.msgLife = msgLife;
+		this.minDistancePerTick = minDistancePerTick;
+		this.maxDistancePerTick = maxDistancePerTick;
+		
 		this.msgDistance = msgDistance;
 	}
 	@Override
@@ -33,7 +42,7 @@ public class Wavefront {
 	
 	//Custom methods
 	public Perturbation live() {
-		this.msgLife++;
+		this.msgLife += RandomHelper.nextIntFromTo(minDistancePerTick, maxDistancePerTick);
 		if(this.msgLife >= this.msgDistance) {
 			//message has to be delivered
 			//(Here the perturbation should be destroyed)

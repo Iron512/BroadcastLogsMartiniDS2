@@ -129,12 +129,23 @@ public class Relay {
 	}
 	
 	public boolean checkFrontiers(Relay cmp) {
-		boolean toRtn = true;
-		
 		//It is not really trivial (as it may look) to consider if two frontiers are the same.
 		//With a static network and no packet loss the task is easy, but in dynamic network this is not the same
+		//as a node might have joined the network after the all the packets from another one were sent.
+		//for this reason i decided to consider 2 frontiers identical, iff each element is either identical in both or eventually null
 		
+		for(Map.Entry<Relay, Integer> entry : this.frontier.entrySet()) {
+		    Relay k = entry.getKey();
+		    int v = entry.getValue();
+
+		    //if the element is not initialized in the frontier i dont even consider it
+			if (cmp.frontier.get(k) != null) {
+				if (cmp.frontier.get(k) != v) {
+					return false;
+				}	
+			}
+		}
 		
-		return toRtn;
+		return true;
 	}
 }

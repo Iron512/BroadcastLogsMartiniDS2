@@ -10,6 +10,11 @@
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
+				<parameter name="avgLatency" displayName="Average Pert. Latency (mu)" type="int" 
+						defaultValue="5" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
 				<parameter name="pertGen" displayName="Perturb. Gen. Probability (%)" type="int" 
 						defaultValue="10" 
 						isReadOnly="false" 
@@ -17,6 +22,11 @@
 											/>
 				<parameter name="totalTick" displayName="Execution Time (in ticks)" type="int" 
 						defaultValue="5000" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
+				<parameter name="Jitter" displayName="Jitter on perturbation (sigma)" type="int" 
+						defaultValue="2" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
