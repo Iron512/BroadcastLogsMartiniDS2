@@ -5,13 +5,8 @@
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
-				<parameter name="dstPerTick" displayName="Distance per Tick" type="int" 
-						defaultValue="1" 
-						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
-											/>
-				<parameter name="avgLatency" displayName="Average Pert. Latency (mu)" type="int" 
-						defaultValue="5" 
+				<parameter name="maxDistancePerTick" displayName="Max distance per Tick" type="int" 
+						defaultValue="6" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
@@ -25,13 +20,13 @@
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
-				<parameter name="Jitter" displayName="Jitter on perturbation (sigma)" type="int" 
-						defaultValue="2" 
+				<parameter name="nodeCount" displayName="Node Count" type="int" 
+						defaultValue="5" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
-				<parameter name="nodeCount" displayName="Node Count" type="int" 
-						defaultValue="5" 
+				<parameter name="minDistancePerTick" displayName="Min distance per Tick" type="int" 
+						defaultValue="2" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>

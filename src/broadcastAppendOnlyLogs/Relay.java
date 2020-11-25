@@ -22,6 +22,8 @@ public class Relay {
 	
 	private Map<Relay, Integer> frontier; //The frontier, basically as described in the paper. I chose an HashMap to keep the
 	//abstraction level as high as possible (with no visible matching between "src" and a position into a sort of Array)
+	private List<Perturbation> bag; //The straightforward implementation of the bag, as described in Relay II
+	
 	
 	private int logicalClock = 1;
 	private int id; 
@@ -42,6 +44,7 @@ public class Relay {
 		
 		this.incomingWavefronts = new ArrayList<Wavefront>();
 		this.frontier = new HashMap<Relay,Integer>();
+		this.bag = new ArrayList<Perturbation>();
 	}
 	@Override
     public boolean equals(Object o) {
@@ -112,25 +115,61 @@ public class Relay {
 		}
 	}
 	
-	public void senseMessage(Perturbation msg) {
+	public void senseMessage(Perturbation p) {
 		//System.out.println(
 		//		this.toString() + " received (" + logicalClock++ + ") " + msg.toString() + " --- " + frontier.get(msg.getSource()));
 	
-		Relay tmpR = msg.getSource();
+		Relay tmpR = p.getSource();
 		if (!tmpR.equals(this)) { //No relays cares about perturbations sent from himself (if they have been forwarded of course)
 			if (frontier.get(tmpR) == null) {
-				frontier.put(tmpR, 1);	
+				//frontier.put(tmpR, 1); //Once i used this line to initialize the correspondent expected value for each relay.
+				//However, when a new Relay joins, it can not be aware of the previous perturbations (by definition, they
+				//don't leave disturbance behind them) therefore, the first message recived from a source, is the head of the frontier.
+				frontier.put(tmpR, p.getRef());
 			}
 			
-			if (frontier.get(tmpR) == msg.getRef()) {
-				aether.generatePerturbation(this, msg);
-				frontier.replace(tmpR, nextRef(msg.getRef()));
+			if (p.getRef() >= frontier.get(tmpR) && !bag.contains(p)) {
+				bag.add(p);
+				
+				//Here the code is translated a little bit differently, since there is no way (at least that i know, right now i can 
+				//not think of any suitable) to translate the pseudocode of "While exists Q in bag with frontier[Q.src] == Q.ref".
+				//So my solution is to check each element in the bag, if we have a match we execute another iteration, if not, both the 
+				//bag and the frontier have not changed their status, so its time to exit (no "changes" detected)
+				boolean changes = true;
+				while (!bag.isEmpty() && changes) {
+					changes = false;
+					List<Perturbation> toRemove = new ArrayList<Perturbation>();
+					
+					for (Perturbation q : bag) {
+						if (frontier.get(q.getSource()) == q.getRef()) {
+							aether.generatePerturbation(this, q);
+							frontier.replace(tmpR, nextRef(q));
+							toRemove.add(q);
+							changes = true;
+						}
+					}
+					
+					for (Perturbation r : toRemove) {
+						bag.remove(r);
+					}
+				}
+				
+				/*
+				for (Perturbation q : bag) {
+					if (frontier.get(q.getSource()) == q.getRef()) {
+						aether.generatePerturbation(this, q);
+						frontier.replace(tmpR, nextRef(q));
+						toRemove.add(q);
+					}
+				}*/
+				
+
 			}
 		}
 	}
 	
-	public int nextRef(int ref) {
-		return ref+1;
+	public int nextRef(Perturbation p) {
+		return p.getRef()+1;
 	}
 	
 	public void stopPerturbations() {
