@@ -109,7 +109,7 @@ public class Relay {
 		}
 
 		//Perturbation generation process. If the Relay decides to generate one, it informs the Manager to create and handle it.
-		if (!this.stopGen && RandomHelper.nextDoubleFromTo(0.0, 100.0) > (100.0-pertGen)) {
+		if (!this.stopGen && RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-pertGen)) {
 			//System.out.println(this.toString() + "is generating a new perturbation");
 			aether.generatePerturbation(this, new Perturbation(this, logicalClock++, 30));
 		}
@@ -153,17 +153,6 @@ public class Relay {
 						bag.remove(r);
 					}
 				}
-				
-				/*
-				for (Perturbation q : bag) {
-					if (frontier.get(q.getSource()) == q.getRef()) {
-						aether.generatePerturbation(this, q);
-						frontier.replace(tmpR, nextRef(q));
-						toRemove.add(q);
-					}
-				}*/
-				
-
 			}
 		}
 	}

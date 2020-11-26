@@ -5,23 +5,38 @@
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
-				<parameter name="pertGen" displayName="Perturb. Gen. Probability (%)" type="int" 
-						defaultValue="10" 
+				<parameter name="maxDistancePerTick" displayName="Max distance per Tick" type="int" 
+						defaultValue="6" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
+				<parameter name="spawnProb" displayName="Node Spawn probability" type="double" 
+						defaultValue="0.01" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>
 				<parameter name="totalTick" displayName="Execution Time (in ticks)" type="int" 
 						defaultValue="5000" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
-				<parameter name="nodeCount" displayName="Node Count" type="int" 
-						defaultValue="5" 
+				<parameter name="pertGen" displayName="Perturbation Generation probability" type="double" 
+						defaultValue="0.05" 
 						isReadOnly="false" 
-						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
+											/>
+				<parameter name="leftProb" displayName="Node Leave probability" type="double" 
+						defaultValue="0.01" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>
 				<parameter name="minDistancePerTick" displayName="Min distance per Tick" type="int" 
 						defaultValue="2" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
+				<parameter name="nodeMinCount" displayName="Min Node number" type="int" 
+						defaultValue="5" 
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
 											/>
