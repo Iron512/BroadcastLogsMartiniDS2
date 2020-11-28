@@ -23,9 +23,7 @@ public class Relay {
 	private Map<Relay, Integer> frontier; //The frontier, basically as described in the paper. I chose an HashMap to keep the
 	//abstraction level as high as possible (with no visible matching between "src" and a position into a sort of Array)
 	private List<Perturbation> bag; //The straightforward implementation of the bag, as described in Relay II
-	
-	
-	private int logicalClock = 1;
+
 	private int id; 
 	private double pertGen; //A parameters (expressed as % between 0 and 1) that considers at a certain tick
 	//whether or not the relay should generate any perturbation
@@ -44,6 +42,7 @@ public class Relay {
 		
 		this.incomingWavefronts = new ArrayList<Wavefront>();
 		this.frontier = new HashMap<Relay,Integer>();
+		this.frontier.put(this, 1);
 		this.bag = new ArrayList<Perturbation>();
 	}
 	@Override
@@ -100,7 +99,7 @@ public class Relay {
 			Perturbation msg = w.live();
 					
 			if (msg != null) {
-				senseMessage(msg);
+				onSenseMessageRelayII(msg);
 				toRemove.add(w);
 			}
 		}
@@ -110,12 +109,13 @@ public class Relay {
 
 		//Perturbation generation process. If the Relay decides to generate one, it informs the Manager to create and handle it.
 		if (!this.stopGen && RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-pertGen)) {
-			//System.out.println(this.toString() + "is generating a new perturbation");
-			aether.generatePerturbation(this, new Perturbation(this, logicalClock++, 30));
+			Perturbation tmp = new Perturbation(this, frontier.get(this), RandomHelper.nextIntFromTo(0, 1500));
+			aether.generatePerturbation(this,tmp);
+			frontier.replace(this, nextRef(tmp));
 		}
 	}
 	
-	public void senseMessage(Perturbation p) {
+	public void onSenseMessageRelayII(Perturbation p) {
 		//System.out.println(
 		//		this.toString() + " received (" + logicalClock++ + ") " + msg.toString() + " --- " + frontier.get(msg.getSource()));
 	
@@ -158,7 +158,10 @@ public class Relay {
 	}
 	
 	public int nextRef(Perturbation p) {
-		return p.getRef()+1;
+		if (p == null)
+			return 1;
+		else 
+			return p.getRef()+1;
 	}
 	
 	public void stopPerturbations() {
@@ -166,7 +169,7 @@ public class Relay {
 	} 
 	
 	public void printFrontier() {
-		System.out.println(this.toString() + ": " + this.logicalClock);
+		System.out.println(this.toString());
 		frontier.forEach((k,v) -> {
 			System.out.println("    " + k.toString() + ": " + v);
 		});
@@ -182,12 +185,9 @@ public class Relay {
 		    Relay k = entry.getKey();
 		    int v = entry.getValue();
 
-		    //if the element is not initialized in the frontier i dont even consider it
-			if (cmp.frontier.get(k) != null) {
-				if (cmp.frontier.get(k) != v) {
-					return false;
-				}	
-			}
+			if (cmp.frontier.get(k) == null || cmp.frontier.get(k) != v) {
+				return false;
+			}	
 		}
 		
 		return true;

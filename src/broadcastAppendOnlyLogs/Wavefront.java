@@ -5,7 +5,7 @@ import java.util.Objects;
 import repast.simphony.random.RandomHelper;
 
 public class Wavefront {
-	private Relay generator; //The source of the Wavefront is different from the source of the Perturbation (as perturbation are usually forwarded)
+	private Relay source; //The source of the Wavefront is different from the source of the Perturbation (as perturbation are usually forwarded)
 	private Perturbation msg;
 	
 	//This 4 parameters have the task of simulating the expansion of the perturbation. They could have been implemented differently, but in the report 
@@ -16,8 +16,8 @@ public class Wavefront {
 	private Double msgDistance; //Represent the arrival of the Wavefront. It is calculated by the Manager, based on the euclidean distance of the Relays.
 
 	//Standard method definition (constructor, equals/hashcode, toString)
-	public Wavefront(Relay generator, Perturbation msg, int msgLife, int minDistancePerTick, int maxDistancePerTick, Double msgDistance) {
-		this.generator = generator;
+	public Wavefront(Relay source, Perturbation msg, int msgLife, int minDistancePerTick, int maxDistancePerTick, Double msgDistance) {
+		this.source = source;
 		this.msg = msg;
 		
 		this.msgLife = msgLife;
@@ -31,17 +31,24 @@ public class Wavefront {
         if (this == o) return true;
         if (!(o instanceof Wavefront)) return false;
         Wavefront cmp = (Wavefront) o;
-        return generator.equals(cmp.generator) && msg.equals(cmp.msg);
+        return source.equals(cmp.source) && msg.equals(cmp.msg);
     }
 	@Override
 	public int hashCode() {
-		return Objects.hash(generator, msg);
+		return Objects.hash(source, msg);
 	}
 	@Override
 	public String toString() {
 		return "Wavefront (" + Integer.toString(msgLife) + "/" + Double.toString(msgDistance) + ") of " + msg.toString();
 	}
 	
+	public Relay getSource() {
+		return this.source;
+	}
+	
+	public Perturbation getMsg() {
+		return this.msg;
+	}
 	//Custom methods
 	
 	//This method is used by the relays to understand when the Wavefront (and the perturbation carried) reached them. The distance traveled is 7

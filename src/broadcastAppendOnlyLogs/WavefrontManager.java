@@ -49,7 +49,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 	private double pertGen;
 	
 	private Set<Relay> activeRelays;
-	private Map<Relay, Perturbation> newestWavefront; //contains the newly generated (during the current tick) perturbations,
+	private Set<Wavefront> newestWavefront; //contains the newly generated (during the current tick) perturbations,
 	//which have still to be initialized
 	private Set<Wavefront> activeWavefront; //contains the currently alive perturbations,
 	//which have already been initialized and are still traveling. Useful in the presence of a dynamic network
@@ -96,7 +96,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		//All the required data structures are initialized
 		this.activeRelays = new HashSet<Relay>();
 		
-		this.newestWavefront = new HashMap<Relay, Perturbation>();
+		this.newestWavefront = new HashSet<Wavefront>();
 		this.activeWavefront = new HashSet<Wavefront>();
 		
 		this.scheduler = RunEnvironment.getInstance().getCurrentSchedule();
@@ -155,19 +155,21 @@ public class WavefrontManager implements ContextBuilder<Object>{
 	//(Sequential execution). Having a wrapper simulates somehow a parallel implementation, where all the Relays are aware
 	//of a perturbation in the same moment (still sequential).
 	public void generatePerturbation(Relay src, Perturbation msg) {
-		newestWavefront.put(src, msg);
+		Wavefront probe = new Wavefront(src, msg, 0, minDistancePerTick, maxDistancePerTick, maxWavefrontLife);
+		newestWavefront.add(probe);
 	}
 	
 	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.LAST_PRIORITY)
 	public void propagatePerturbation() {
 		//The new perturbations are encapsulated in the wavefront
-		newestWavefront.forEach((k,v) -> {
-			Wavefront probe = new Wavefront(k, v, 0, minDistancePerTick, maxDistancePerTick, maxWavefrontLife);
-			if (!activeWavefront.contains(probe)) {
+		newestWavefront.forEach((k) -> {
+			if (!activeWavefront.contains(k)) {
+				activeWavefront.add(k);
 				for(Relay relay : activeRelays) {
-					if (!relay.equals(k)) {
+					if (!relay.equals(k.getSource())) {
 						relay.addPerturbation(
-							new Wavefront(k, v, 0, minDistancePerTick, maxDistancePerTick, distances.get(k).get(relay)));
+							new Wavefront(k.getSource(), k.getMsg(), 0, minDistancePerTick, maxDistancePerTick, distances.get(k.getSource()).get(relay)));
+						
 					}	
 				}
 			}
@@ -212,7 +214,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 			System.out.println("Removed");
 		}
 		
-		if (scheduler.getTickCount() == (int)(totalTick-(maxWavefrontLife/minDistancePerTick))) {
+		if (scheduler.getTickCount() == totalTick) {
 			//Stop the generation of messages, to allow the wavefront to syncronize
 			this.dynamicity = false;
 			for(Relay relay : activeRelays) {
@@ -220,19 +222,24 @@ public class WavefrontManager implements ContextBuilder<Object>{
 			}
 		}
 		
-		if (scheduler.getTickCount() >= totalTick) {
+		if (scheduler.getTickCount() >= totalTick ) {
 			//take one random relay as the ground truth for our frontier.
 			Relay ground = activeRelays.iterator().next();
 			boolean result = true;
 			
 			for(Relay relay : activeRelays) {
-				relay.printFrontier();
 				//If just any relay's frontier is different from the ground truth the frontier are disaligned,
 				//therefore the algorithm is faulty.
 				result &= ground.checkFrontiers(relay);
 			}
-			System.out.println("Result: " + result);
-			RunEnvironment.getInstance().endRun();
+			
+			if (result || scheduler.getTickCount() >= totalTick*20) {
+				for(Relay relay : activeRelays) {
+					relay.printFrontier();
+				}
+				System.out.println("Frontiers sync'd " + result );
+				RunEnvironment.getInstance().endRun();
+			}
 		}
 	}
 }
