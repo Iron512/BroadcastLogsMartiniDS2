@@ -15,6 +15,11 @@
 						isReadOnly="false" 
 						converter="repast.simphony.parameter.StringConverterFactory$DoubleConverter"
 											/>
+				<parameter name="nodeMaxCount" displayName="Max Node count" type="int" 
+						defaultValue="25" 
+						isReadOnly="false" 
+						converter="repast.simphony.parameter.StringConverterFactory$IntConverter"
+											/>
 				<parameter name="totalTick" displayName="Execution Time (in ticks)" type="int" 
 						defaultValue="5000" 
 						isReadOnly="false" 

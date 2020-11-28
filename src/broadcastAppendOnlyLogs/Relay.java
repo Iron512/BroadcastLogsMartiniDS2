@@ -20,31 +20,37 @@ public class Relay {
 	private List<Wavefront> incomingWavefronts; //The list of all the incoming Wavefront. This is an abstraction of the real life, where
 	//the perturbations are obviously sensed and the observer is not aware of the perturbation that it's going to sense 
 	
-	private Map<Relay, Integer> frontier; //The frontier, basically as described in the paper. I chose an HashMap to keep the
+	private Map<Relay, Integer> frontier; //The frontier, basically as described in Relay I. I chose an HashMap to keep the
 	//abstraction level as high as possible (with no visible matching between "src" and a position into a sort of Array)
 	private List<Perturbation> bag; //The straightforward implementation of the bag, as described in Relay II
 	
-	
-	private int logicalClock = 1;
-	private int id; 
-	private double pertGen; //A parameters (expressed as % between 0 and 1) that considers at a certain tick
+	private Map<Relay, List<Perturbation>> log;
+
+	private int id;
+	private double pertGen; //A parameter (expressed as % between 0 and 1) that considers at a certain tick
 	//whether or not the relay should generate any perturbation
+	private double lossProb; //Expresses the probability of losing a perturbation or getting it corrupted
 	private boolean stopGen; //A boolean that inhibts the generation of the messages. Stopping the simulation at any random point 
 	//might lead to inconsistencies, due to the propagation of the perturbation. Some ticks before the end of the simulation the Relays
 	//stop generating perturbations, in order let all the existing ones to reach their destination. This clearly doesn't break
 	//the 2nd property, which requirest that the all the perturbations EVENTUALLY reach all the observers.
 	
 	//Standard method definition (constructor, equals/hashcode, toString)
-	public Relay(ContinuousSpace<Object> space, WavefrontManager aether, int id, double pertGen) {
+	public Relay(ContinuousSpace<Object> space, WavefrontManager aether, int id, double pertGen, double lossProb) {
 		this.space = space;
 		this.aether = aether;
 		this.id = id;
 		this.pertGen = pertGen;
+		this.lossProb = lossProb;
 		this.stopGen = false;
 		
 		this.incomingWavefronts = new ArrayList<Wavefront>();
 		this.frontier = new HashMap<Relay,Integer>();
+		this.frontier.put(this, 1);
 		this.bag = new ArrayList<Perturbation>();
+		this.log = new HashMap<Relay, List<Perturbation>>();
+		this.log.put(this, new ArrayList<Perturbation>());
+		this.log.get(this).add(null);
 	}
 	@Override
     public boolean equals(Object o) {
@@ -88,10 +94,11 @@ public class Relay {
     	incomingWavefronts.add(p);
     }
     
+	int x = 0;
+	
 	@ScheduledMethod(start = 1, interval = 1)
 	//This is the main process of the Relay. It handles the reception of incoming wavefronts and the random generation of some of them
 	public void step() {
-		
 		//The list toRemove has the task of keeping track of all the wavefronts received during this current tick.
 		List<Wavefront> toRemove = new ArrayList<Wavefront>();
 		for (Wavefront w : incomingWavefronts) {
@@ -100,25 +107,70 @@ public class Relay {
 			Perturbation msg = w.live();
 					
 			if (msg != null) {
-				senseMessage(msg);
+				if (!(RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-lossProb))) {
+					if (msg.getARQ()) {
+						onSenseARQ(msg); 
+					} else {
+						onSenseMessageRelayIII(msg);
+					}
+				}
 				toRemove.add(w);
 			}
 		}
 		for (Wavefront w : toRemove) {
 			incomingWavefronts.remove(w);
 		}
-
-		//Perturbation generation process. If the Relay decides to generate one, it informs the Manager to create and handle it.
+		
+		if (x++ % 100 == 0) {
+			this.log.forEach((k,v) -> {
+				if (k != this) {
+					System.out.println(this.toString()+k + " " +nextRef(v.get(v.size()-1)));
+					Perturbation tmp = new Perturbation(this, k, nextRef(v.get(v.size()-1)));	
+					aether.generatePerturbation(this, tmp);
+				}
+			});
+		}
+		
 		if (!this.stopGen && RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-pertGen)) {
-			//System.out.println(this.toString() + "is generating a new perturbation");
-			aether.generatePerturbation(this, new Perturbation(this, logicalClock++, 30));
+			//Perturbation tmp = new Perturbation(this, frontier.get(this), RandomHelper.nextIntFromTo(0, 2048));
+			Perturbation tmp = new Perturbation(this, nextRef(log.get(this).get(log.get(this).size()-1)), RandomHelper.nextIntFromTo(0, 1500));
+		
+			aether.generatePerturbation(this,tmp);
+			//frontier.replace(this, nextRef(tmp));
+			log.get(this).add(tmp);
 		}
 	}
 	
-	public void senseMessage(Perturbation p) {
-		//System.out.println(
-		//		this.toString() + " received (" + logicalClock++ + ") " + msg.toString() + " --- " + frontier.get(msg.getSource()));
+	public void onSenseMessageRelayIII(Perturbation p) {
+		Relay pRelay = p.getSource();
+		if (!pRelay.equals(this)) { //No relays cares about perturbations sent from himself (if they have been forwarded of course)
+			if (log.get(pRelay) == null) {
+				//first message, initialize the list for that Relay
+				log.put(pRelay, new ArrayList<Perturbation>());
+				log.get(pRelay).add(null);
+			} 			
+			
+			//normal perturbation
+			if (nextRef(log.get(pRelay).get(log.get(pRelay).size()-1)) == p.getRef()) {
+				aether.generatePerturbation(this, p);
+				log.get(pRelay).add(p);
+			}
+		}
+	}
 	
+	public void onSenseARQ(Perturbation p) {
+		if (this.equals(p.getARQrelay()))
+			System.out.println("I am!");
+		if (this.log.get(p.getARQrelay()) != null) {
+			this.log.get(p.getARQrelay()).forEach((q) -> {
+				if (q != null)
+					if (q.getRef() == p.getValue()) {
+						aether.generatePerturbation(this, q);
+					} 
+			});
+		}
+	} 
+	public void senseMessageRelayII(Perturbation p) {
 		Relay tmpR = p.getSource();
 		if (!tmpR.equals(this)) { //No relays cares about perturbations sent from himself (if they have been forwarded of course)
 			if (frontier.get(tmpR) == null) {
@@ -158,7 +210,10 @@ public class Relay {
 	}
 	
 	public int nextRef(Perturbation p) {
-		return p.getRef()+1;
+		if (p == null)
+			return 1;
+		else 
+			return p.getRef()+1;
 	}
 	
 	public void stopPerturbations() {
@@ -166,9 +221,17 @@ public class Relay {
 	} 
 	
 	public void printFrontier() {
-		System.out.println(this.toString() + ": " + this.logicalClock);
+		System.out.println(this.toString());
 		frontier.forEach((k,v) -> {
 			System.out.println("    " + k.toString() + ": " + v);
+		});
+	}
+	
+	public void fillFrontiers() {
+		this.log.forEach((relay,list) -> {
+			if (list.get(list.size()-1) != null) {
+				this.frontier.put(relay, list.size());//list.get(list.size()-1).getRef());
+			}
 		});
 	}
 	
@@ -177,17 +240,13 @@ public class Relay {
 		//With a static network and no packet loss the task is easy, but in dynamic network this is not the same
 		//as a node might have joined the network after the all the packets from another one were sent.
 		//for this reason i decided to consider 2 frontiers identical, iff each element is either identical in both or eventually null
-		
 		for(Map.Entry<Relay, Integer> entry : this.frontier.entrySet()) {
 		    Relay k = entry.getKey();
 		    int v = entry.getValue();
-
-		    //if the element is not initialized in the frontier i dont even consider it
-			if (cmp.frontier.get(k) != null) {
-				if (cmp.frontier.get(k) != v) {
-					return false;
-				}	
-			}
+		    
+			if (cmp.frontier.get(k) == null || cmp.frontier.get(k) != v) {
+				return false;
+			}	
 		}
 		
 		return true;
