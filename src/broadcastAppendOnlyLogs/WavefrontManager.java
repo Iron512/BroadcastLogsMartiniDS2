@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -34,10 +35,12 @@ public class WavefrontManager implements ContextBuilder<Object>{
 	private Context<Object> context;
 	ContinuousSpace<Object> space; 
 	
-	private int totalTick;
-	private int minDistancePerTick;
-	private int maxDistancePerTick;
-	private double maxWavefrontLife;
+	private int totalTick; //The total tick of the simulation. During this period the Relays will procede generating messages.
+	//After this time the simulation will run until all the messages has been delivered, to guarantee the consistency of the algoithm 
+	//and of the entire simulated system.
+	private int minDistancePerTick; //the min distance that a perturbation travels each tick
+	private int maxDistancePerTick; //the min distance that a perturbation travels each tick
+	private double maxWavefrontLife; //the furthest that a perturbation can travel
 	
 	private int nodeIndex;
 	private int nodeMinCount;
@@ -57,7 +60,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 	private ISchedule scheduler;
 	private Map<Relay, Map<Relay, Double>> distances; //Its a full symmetrical matrix containing the distances
 	//between each member of the network. Gets updated each time a new node enters in the game
-	
+	private List<String> topics;
 	
 	//Standard method definition (constructor, no need for equals and hashcode)
 	public Context<Object> build(Context<Object> context) {
@@ -88,7 +91,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		this.nodeMinCount = params.getInteger("nodeMinCount");	//defines the number of nodes acting in the scene
 		this.nodeMaxCount = params.getInteger("nodeMaxCount");	
 		
-		this.dynamicity =  true;
+		this.dynamicity =  true; //
 		this.spawnProb = params.getDouble("spawnProb"); //probability of joining or leaving the network for each node/new node
 		this.leaveProb = params.getDouble("leftProb");
 		this.pertGen = params.getDouble("pertGen"); //defines the probability of each relay of generating a perturbation
@@ -101,17 +104,35 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		
 		this.scheduler = RunEnvironment.getInstance().getCurrentSchedule();
 		this.distances = new HashMap<Relay, Map<Relay, Double>>();
+		this.topics = new ArrayList<String>();
+		this.topics.add("first");
+		this.topics.add("second");
+		this.topics.add("third");
 		
-
+		this.topics.add("fourth");
+		this.topics.add("fifth");
+		this.topics.add("sixth");
+		
+		this.topics.add("seventh");
+		this.topics.add("eighth");
+		this.topics.add("nineth");
 
 		this.context = context;
 		
 		//Initialize nodes
 		int activeNodes = RandomHelper.nextIntFromTo(nodeMinCount, nodeMaxCount);
 		for (nodeIndex = 0; nodeIndex < activeNodes; nodeIndex++) {
-			this.addRelay(new Relay(space, this, nodeIndex, pertGen));
+			Relay relay = new Relay(space, this, nodeIndex, pertGen);
+			this.addRelay(relay);
+			
+			int subscriptions = RandomHelper.nextIntFromTo(0, 3);
+			while (subscriptions > 0) {
+				int position = RandomHelper.nextIntFromTo(0, this.topics.size()-1);
+				
+				if (relay.addTopic(this.topics.get(position)))
+					subscriptions--;
+			}
 		}
-		
 		return context;
 	}
 	
@@ -192,9 +213,26 @@ public class WavefrontManager implements ContextBuilder<Object>{
 	
 	}
 	
+	public String getRandomTopic() {
+		return this.topics.get(RandomHelper.nextIntFromTo(0, this.topics.size()-1));
+	}
+	
+	public Relay getRandomRelay() {
+		int position = RandomHelper.nextIntFromTo(0, this.activeRelays.size()-1);
+		Iterator<Relay> iter = this.activeRelays.iterator();
+		Relay toRtn = iter.next();
+		
+		while (position > 0) {
+			toRtn = iter.next();
+			position--;
+		}
+		
+		return toRtn;
+	}
+	
 	//This method ensures the correct ending procedure to be activated before stoping the run.
 	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.FIRST_PRIORITY)
-	public void checkExecution() {
+	public void terminatingProtocol() {
 		if (this.dynamicity && RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-this.spawnProb) && this.activeRelays.size() < this.nodeMaxCount) {
 			this.addRelay(new Relay(this.space, this, nodeIndex++, pertGen));
 			System.out.println("Added");
@@ -224,6 +262,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		
 		if (scheduler.getTickCount() >= totalTick ) {
 			//take one random relay as the ground truth for our frontier.
+
 			Relay ground = activeRelays.iterator().next();
 			boolean result = true;
 			
