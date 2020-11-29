@@ -12,6 +12,6 @@
     <string>SettingsRegistryId</string>
     <string>Repast.registry</string>
     <string>LastLoadedScenario</string>
-    <string>/home/ivan/Unitn/DS2/Labs/BroadcastAppendOnlyLogs/BroadcastAppendOnlyLogs.rs</string>
+    <string>/home/ivan/Unitn/DS2/BroadcastLogsMartiniDS2/BroadcastAppendOnlyLogs.rs</string>
   </hashtable>
 </simphony.settings.SettingsRegistry>

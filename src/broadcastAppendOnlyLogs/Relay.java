@@ -2,9 +2,11 @@ package broadcastAppendOnlyLogs;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Objects;
 
 import repast.simphony.engine.schedule.ScheduledMethod;
@@ -24,8 +26,10 @@ public class Relay {
 	//abstraction level as high as possible (with no visible matching between "src" and a position into a sort of Array)
 	private List<Perturbation> bag; //The straightforward implementation of the bag, as described in Relay II
 	
+	//The topics list, containing all the subscribed ones.
+	private Set<String> topics;
 	
-	private int logicalClock = 1;
+	
 	private int id; 
 	private double pertGen; //A parameters (expressed as % between 0 and 1) that considers at a certain tick
 	//whether or not the relay should generate any perturbation
@@ -44,7 +48,9 @@ public class Relay {
 		
 		this.incomingWavefronts = new ArrayList<Wavefront>();
 		this.frontier = new HashMap<Relay,Integer>();
+		this.frontier.put(this, 1);
 		this.bag = new ArrayList<Perturbation>();
+		this.topics = new HashSet<String>();
 	}
 	@Override
     public boolean equals(Object o) {
@@ -88,6 +94,10 @@ public class Relay {
     	incomingWavefronts.add(p);
     }
     
+    public boolean addTopic(String topic) {
+    	return topics.add(topic);
+    }
+    
 	@ScheduledMethod(start = 1, interval = 1)
 	//This is the main process of the Relay. It handles the reception of incoming wavefronts and the random generation of some of them
 	public void step() {
@@ -100,7 +110,7 @@ public class Relay {
 			Perturbation msg = w.live();
 					
 			if (msg != null) {
-				senseMessage(msg);
+				onSenseMessageRelayII(msg);
 				toRemove.add(w);
 			}
 		}
@@ -110,19 +120,34 @@ public class Relay {
 
 		//Perturbation generation process. If the Relay decides to generate one, it informs the Manager to create and handle it.
 		if (!this.stopGen && RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-pertGen)) {
-			//System.out.println(this.toString() + "is generating a new perturbation");
-			aether.generatePerturbation(this, new Perturbation(this, logicalClock++, 30));
+			Perturbation tmp;
+			
+			if (RandomHelper.nextDoubleFromTo(0.0, 1.0) > 0.5) {
+				if (RandomHelper.nextDoubleFromTo(0.0, 1.0) > 0.5) {
+					Set<Relay> dest = new HashSet<Relay>();
+					int count = RandomHelper.nextIntFromTo(1, 3);
+					while (count != dest.size()) 
+						dest.add(aether.getRandomRelay());
+					
+					tmp =  new Perturbation(this, frontier.get(this), RandomHelper.nextIntFromTo(0, 1500), dest);
+				} else {
+					tmp =  new Perturbation(this, frontier.get(this), RandomHelper.nextIntFromTo(0, 1500), aether.getRandomTopic());
+				}
+			} else {
+				tmp =  new Perturbation(this, frontier.get(this), RandomHelper.nextIntFromTo(0, 1500));
+			}
+			
+			aether.generatePerturbation(this,tmp);
+			frontier.replace(this, nextRef(tmp));
 		}
 	}
 	
-	public void senseMessage(Perturbation p) {
-		//System.out.println(
-		//		this.toString() + " received (" + logicalClock++ + ") " + msg.toString() + " --- " + frontier.get(msg.getSource()));
-	
+	public void onSenseMessageRelayII(Perturbation p) {
 		Relay tmpR = p.getSource();
 		if (!tmpR.equals(this)) { //No relays cares about perturbations sent from himself (if they have been forwarded of course)
 			if (frontier.get(tmpR) == null) {
 				//frontier.put(tmpR, 1); //Once i used this line to initialize the correspondent expected value for each relay.
+				
 				//However, when a new Relay joins, it can not be aware of the previous perturbations (by definition, they
 				//don't leave disturbance behind them) therefore, the first message recived from a source, is the head of the frontier.
 				frontier.put(tmpR, p.getRef());
@@ -142,7 +167,22 @@ public class Relay {
 					
 					for (Perturbation q : bag) {
 						if (frontier.get(q.getSource()) == q.getRef()) {
+							//the message here gets delivered
 							aether.generatePerturbation(this, q);
+							
+							if (q.getTopic() != null) {
+								//this message has been sent by a Pub, check the topic to see if i am subscripted.
+								if (this.topics.contains(q.getTopic())) {
+									//I am subscribed
+									consume_upcall(q); 
+								}
+							}
+							
+							if (q.destinatedTo(this)) {
+								//this message is destinated to me (and possibily some other Relays)
+								recv_upcall(q);
+							}
+							
 							frontier.replace(tmpR, nextRef(q));
 							toRemove.add(q);
 							changes = true;
@@ -157,8 +197,19 @@ public class Relay {
 		}
 	}
 	
+	public void consume_upcall(Perturbation p) {
+		System.out.println(this + " recived a message from " + p.getSource() + " with the topic " + p.getTopic());
+	}
+	
+	public void recv_upcall(Perturbation p) {
+		System.out.println(this + " recived a private message from " + p.getSource());
+	}
+	
 	public int nextRef(Perturbation p) {
-		return p.getRef()+1;
+		if (p == null)
+			return 1;
+		else 
+			return p.getRef()+1;
 	}
 	
 	public void stopPerturbations() {
@@ -166,7 +217,7 @@ public class Relay {
 	} 
 	
 	public void printFrontier() {
-		System.out.println(this.toString() + ": " + this.logicalClock);
+		System.out.println(this.toString());
 		frontier.forEach((k,v) -> {
 			System.out.println("    " + k.toString() + ": " + v);
 		});
@@ -177,19 +228,14 @@ public class Relay {
 		//With a static network and no packet loss the task is easy, but in dynamic network this is not the same
 		//as a node might have joined the network after the all the packets from another one were sent.
 		//for this reason i decided to consider 2 frontiers identical, iff each element is either identical in both or eventually null
-		
-		for(Map.Entry<Relay, Integer> entry : this.frontier.entrySet()) {
-		    Relay k = entry.getKey();
-		    int v = entry.getValue();
 
-		    //if the element is not initialized in the frontier i dont even consider it
-			if (cmp.frontier.get(k) != null) {
-				if (cmp.frontier.get(k) != v) {
-					return false;
-				}	
+		for (Map.Entry<Relay, Integer> entry : this.frontier.entrySet()) {
+			if ((cmp.frontier.get(entry.getKey()) != null && (int) entry.getValue() != cmp.frontier.get(entry.getKey()))) {
+				System.out.println(cmp.frontier.get(entry.getKey())+ " " + entry.getValue() + " =/= " + cmp.frontier.get(entry.getKey()));
+				return false;
 			}
 		}
-		
+
 		return true;
 	}
 }
