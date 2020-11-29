@@ -399,3 +399,45 @@ java.lang.NullPointerException
 	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:109)
 	at java.desktop/java.awt.EventDispatchThread.pumpEvents(EventDispatchThread.java:101)
 	at java.desktop/java.awt.EventDispatchThread.run(EventDispatchThread.java:90)
+FATAL [Thread-11] 2020-11-29 20:40:59,876 repast.simphony.ui.GUIScheduleRunner - RunTimeException when running the schedule
+Current tick (33.0)
+java.lang.RuntimeException: java.lang.reflect.InvocationTargetException
+	at repast.simphony.engine.schedule.DynamicTargetAction.execute(DynamicTargetAction.java:72)
+	at repast.simphony.engine.controller.ScheduledMethodControllerAction$ScheduleMethodAllAction.execute(ScheduledMethodControllerAction.java:336)
+	at repast.simphony.engine.schedule.DefaultAction.execute(DefaultAction.java:38)
+	at repast.simphony.engine.schedule.ScheduleGroup.executeList(ScheduleGroup.java:205)
+	at repast.simphony.engine.schedule.ScheduleGroup.execute(ScheduleGroup.java:227)
+	at repast.simphony.engine.schedule.Schedule.execute(Schedule.java:352)
+	at repast.simphony.ui.GUIScheduleRunner$ScheduleLoopRunnable.run(GUIScheduleRunner.java:52)
+	at java.base/java.lang.Thread.run(Thread.java:834)
+Caused by: java.lang.reflect.InvocationTargetException
+	at broadcastAppendOnlyLogs.WavefrontManager$$FastClassByCGLIB$$5fddc1f5.invoke(<generated>)
+	at net.sf.cglib.reflect.FastMethod.invoke(FastMethod.java:53)
+	at repast.simphony.engine.schedule.DynamicTargetAction.execute(DynamicTargetAction.java:69)
+	... 7 more
+Caused by: java.lang.NullPointerException
+	at broadcastAppendOnlyLogs.WavefrontManager.removeRelay(WavefrontManager.java:171)
+	at broadcastAppendOnlyLogs.WavefrontManager.run(WavefrontManager.java:211)
+	... 10 more
+FATAL [Thread-3] 2020-11-29 20:48:40,854 repast.simphony.ui.GUIScheduleRunner - RunTimeException when running the schedule
+Current tick (150.0)
+java.lang.RuntimeException: java.lang.reflect.InvocationTargetException
+	at repast.simphony.engine.schedule.DynamicTargetAction.execute(DynamicTargetAction.java:72)
+	at repast.simphony.engine.controller.ScheduledMethodControllerAction$ScheduleMethodAllAction.execute(ScheduledMethodControllerAction.java:336)
+	at repast.simphony.engine.schedule.DefaultAction.execute(DefaultAction.java:38)
+	at repast.simphony.engine.schedule.ScheduleGroup.executeList(ScheduleGroup.java:205)
+	at repast.simphony.engine.schedule.ScheduleGroup.execute(ScheduleGroup.java:227)
+	at repast.simphony.engine.schedule.Schedule.execute(Schedule.java:352)
+	at repast.simphony.ui.GUIScheduleRunner$ScheduleLoopRunnable.run(GUIScheduleRunner.java:52)
+	at java.base/java.lang.Thread.run(Thread.java:834)
+Caused by: java.lang.reflect.InvocationTargetException
+	at broadcastAppendOnlyLogs.WavefrontManager$$FastClassByCGLIB$$5fddc1f5.invoke(<generated>)
+	at net.sf.cglib.reflect.FastMethod.invoke(FastMethod.java:53)
+	at repast.simphony.engine.schedule.DynamicTargetAction.execute(DynamicTargetAction.java:69)
+	... 7 more
+Caused by: java.util.ConcurrentModificationException
+	at java.base/java.util.LinkedHashMap$LinkedKeySet.forEach(LinkedHashMap.java:561)
+	at java.base/java.util.Collections$UnmodifiableCollection.forEach(Collections.java:1085)
+	at broadcastAppendOnlyLogs.WavefrontManager.removeRelay(WavefrontManager.java:172)
+	at broadcastAppendOnlyLogs.WavefrontManager.run(WavefrontManager.java:216)
+	... 10 more

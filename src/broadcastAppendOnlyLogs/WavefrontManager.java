@@ -8,10 +8,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import bsh.This;
 import repast.simphony.context.Context;
 import repast.simphony.context.space.continuous.ContinuousSpaceFactory;
 import repast.simphony.context.space.continuous.ContinuousSpaceFactoryFinder;
+import repast.simphony.context.space.graph.NetworkBuilder;
 import repast.simphony.dataLoader.ContextBuilder;
 import repast.simphony.engine.environment.RunEnvironment;
 import repast.simphony.engine.schedule.ISchedule;
@@ -22,6 +22,8 @@ import repast.simphony.random.RandomHelper;
 import repast.simphony.space.continuous.ContinuousSpace;
 import repast.simphony.space.continuous.RandomCartesianAdder;
 import repast.simphony.space.continuous.WrapAroundBorders;
+import repast.simphony.space.graph.Network;
+import repast.simphony.space.graph.RepastEdge;
 import repast.simphony.util.ContextUtils;
 
 //This class is an artifice developed to simulate the "medium" where perturbation are transfered.
@@ -42,18 +44,17 @@ public class WavefrontManager implements ContextBuilder<Object>{
 	private int maxDistancePerTick; //the min distance that a perturbation travels each tick
 	private double maxWavefrontLife; //the furthest that a perturbation can travel
 	
-	private int nodeIndex;
-	private int nodeMinCount;
-	private int nodeMaxCount;
+	private int nodeIndex; //The node index, each time a node is created, it grows.
+	private int nodeMinCount; //The upper bound of the network
+	private int nodeMaxCount; //The lowr bound of the network
 	
-	private boolean dynamicity;
-	private double spawnProb;
-	private double leaveProb;
-	private double pertGen;
+	private double spawnProb; //The probability for having a new node to join the network	
+	private double leaveProb; //The probability for having an existing node to leave the network 
+	private double pertGen; //The probability for each node to generate a message
 	
 	private Set<Relay> activeRelays;
 	private Set<Wavefront> newestWavefront; //contains the newly generated (during the current tick) perturbations,
-	//which have still to be initialized
+	//which have still to be initialized (Already in the form of wavefronts)
 	private Set<Wavefront> activeWavefront; //contains the currently alive perturbations,
 	//which have already been initialized and are still traveling. Useful in the presence of a dynamic network
 	
@@ -80,21 +81,20 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		
 		Parameters params = RunEnvironment.getInstance().getParameters();
 		
-		this.totalTick = params.getInteger("totalTick"); //The time that the simulation should run
-		this.minDistancePerTick = params.getInteger("minDistancePerTick"); //defines how many distance a perturbation travels during a tick.
+		this.totalTick = params.getInteger("totalTick"); 
+		this.minDistancePerTick = params.getInteger("minDistancePerTick");
 		this.maxDistancePerTick = params.getInteger("maxDistancePerTick");
 		this.maxWavefrontLife = Math.sqrt((dstY*dstY) + (dstX*dstX)) + 1.0; //It briefly calculates the furthest distance that a Wavelength
 		//can travel (the maximum life that can be scored). Even in the worst case (with two Relays in the opposite angles of the square)
 		//no distance will be furthest than this.
 		
 		this.nodeIndex = 0;
-		this.nodeMinCount = params.getInteger("nodeMinCount");	//defines the number of nodes acting in the scene
+		this.nodeMinCount = params.getInteger("nodeMinCount");	
 		this.nodeMaxCount = params.getInteger("nodeMaxCount");	
-		
-		this.dynamicity =  true; //
-		this.spawnProb = params.getDouble("spawnProb"); //probability of joining or leaving the network for each node/new node
+
+		this.spawnProb = params.getDouble("spawnProb"); 
 		this.leaveProb = params.getDouble("leftProb");
-		this.pertGen = params.getDouble("pertGen"); //defines the probability of each relay of generating a perturbation
+		this.pertGen = params.getDouble("pertGen"); 
 	
 		//All the required data structures are initialized
 		this.activeRelays = new HashSet<Relay>();
@@ -104,6 +104,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		
 		this.scheduler = RunEnvironment.getInstance().getCurrentSchedule();
 		this.distances = new HashMap<Relay, Map<Relay, Double>>();
+
 		this.topics = new ArrayList<String>();
 		this.topics.add("first");
 		this.topics.add("second");
@@ -117,6 +118,9 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		this.topics.add("eighth");
 		this.topics.add("nineth");
 
+		NetworkBuilder<Object> netBuilder = new NetworkBuilder<Object>("messagesNetwork", context, true);
+		netBuilder.buildNetwork();
+		
 		this.context = context;
 		
 		//Initialize nodes
@@ -125,6 +129,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 			Relay relay = new Relay(space, this, nodeIndex, pertGen);
 			this.addRelay(relay);
 			
+			//Add also some random topics from the pool of existing ones.
 			int subscriptions = RandomHelper.nextIntFromTo(0, 3);
 			while (subscriptions > 0) {
 				int position = RandomHelper.nextIntFromTo(0, this.topics.size()-1);
@@ -159,30 +164,92 @@ public class WavefrontManager implements ContextBuilder<Object>{
 	public boolean removeRelay(Relay item) {
 		//Relays should be also removed from the context!
 		boolean result =  activeRelays.remove(item);
-		this.context.remove(item);
+		
 		if (result) {
+			Network<Object> net = (Network<Object>) context.getProjection("messagesNetwork");
+			net.getEdges(item).forEach((e) -> {
+				net.removeEdge(e);
+			});
+			
 			distances.forEach((k,v) -> {
 				if (k != item) {
 					v.remove(item);
 				}
 			});
 			distances.remove(item);
+			
+			this.context.remove(item);
 		}
+		
+		
 		return result;
 	}
+	
+	public boolean active(Relay r) {
+		return this.activeRelays.contains(r);
+	}
 
-	//The generatePerturbation simply puts "a reminder". The perturbation will be processed by the next method, with least priority
+	//The generatePerturbation simply puts "a reminder". The Wavefront will be processed by the next method, with least priority
 	//on the Scheduler. This wrapper is possibly called by any Relay while some have already been executed and some still have to 
 	//(Sequential execution). Having a wrapper simulates somehow a parallel implementation, where all the Relays are aware
-	//of a perturbation in the same moment (still sequential).
+	//of a perturbation in the same moment (even if still sequential).
 	public void generatePerturbation(Relay src, Perturbation msg) {
 		Wavefront probe = new Wavefront(src, msg, 0, minDistancePerTick, maxDistancePerTick, maxWavefrontLife);
 		newestWavefront.add(probe);
 	}
+
+	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.FIRST_PRIORITY)
+	public void run() {
+		if (RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-this.spawnProb) && this.activeRelays.size() < this.nodeMaxCount) {
+			this.addRelay(new Relay(this.space, this, nodeIndex++, pertGen));
+			System.out.println("Added");
+		}
+		
+		if (RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-this.leaveProb) && this.activeRelays.size() > this.nodeMinCount) {
+			int element = RandomHelper.nextIntFromTo(0, this.activeRelays.size());
+			Relay item = this.activeRelays.iterator().next();
+			
+			for (Relay r : this.activeRelays) {
+				if (element == 0)
+					item = r;
+				element--;
+			}
+			
+			this.removeRelay(item);
+			System.out.println("Removed");
+		}
+		
+		if (scheduler.getTickCount() == totalTick) {
+			//Stop the generation of messages, to allow the wavefront to syncronize
+			for(Relay relay : activeRelays) {
+				relay.stopPerturbations();
+			}
+		}
+		
+		if (scheduler.getTickCount() >= totalTick ) {
+			//take one random relay as the ground truth for our frontier.
+
+			Relay ground = activeRelays.iterator().next();
+			boolean result = true;
+			
+			for(Relay relay : activeRelays) {
+				//If just any relay's frontier is different from the ground truth the frontier are disaligned,
+				//therefore the algorithm is faulty.
+				result &= ground.checkFrontiers(relay);
+			}
+			
+			if (result || scheduler.getTickCount() >= totalTick*20) {
+				for(Relay relay : activeRelays) {
+					relay.printFrontier();
+				}
+				System.out.println("Frontiers sync'd " + result );
+				RunEnvironment.getInstance().endRun();
+			}
+		}
+	}
 	
 	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.LAST_PRIORITY)
 	public void propagatePerturbation() {
-		//The new perturbations are encapsulated in the wavefront
 		newestWavefront.forEach((k) -> {
 			if (!activeWavefront.contains(k)) {
 				activeWavefront.add(k);
@@ -228,57 +295,5 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		}
 		
 		return toRtn;
-	}
-	
-	//This method ensures the correct ending procedure to be activated before stoping the run.
-	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.FIRST_PRIORITY)
-	public void terminatingProtocol() {
-		if (this.dynamicity && RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-this.spawnProb) && this.activeRelays.size() < this.nodeMaxCount) {
-			this.addRelay(new Relay(this.space, this, nodeIndex++, pertGen));
-			System.out.println("Added");
-		}
-		
-		if (this.dynamicity && RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-this.leaveProb) && this.activeRelays.size() > this.nodeMinCount) {
-			int element = RandomHelper.nextIntFromTo(0, this.activeRelays.size());
-			Relay item = this.activeRelays.iterator().next();
-			
-			for (Relay r : this.activeRelays) {
-				if (element == 0)
-					item = r;
-				element--;
-			}
-			
-			this.removeRelay(item);
-			System.out.println("Removed");
-		}
-		
-		if (scheduler.getTickCount() == totalTick) {
-			//Stop the generation of messages, to allow the wavefront to syncronize
-			this.dynamicity = false;
-			for(Relay relay : activeRelays) {
-				relay.stopPerturbations();
-			}
-		}
-		
-		if (scheduler.getTickCount() >= totalTick ) {
-			//take one random relay as the ground truth for our frontier.
-
-			Relay ground = activeRelays.iterator().next();
-			boolean result = true;
-			
-			for(Relay relay : activeRelays) {
-				//If just any relay's frontier is different from the ground truth the frontier are disaligned,
-				//therefore the algorithm is faulty.
-				result &= ground.checkFrontiers(relay);
-			}
-			
-			if (result || scheduler.getTickCount() >= totalTick*20) {
-				for(Relay relay : activeRelays) {
-					relay.printFrontier();
-				}
-				System.out.println("Frontiers sync'd " + result );
-				RunEnvironment.getInstance().endRun();
-			}
-		}
 	}
 }
