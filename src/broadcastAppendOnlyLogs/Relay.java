@@ -12,6 +12,9 @@ import java.util.Objects;
 import repast.simphony.engine.schedule.ScheduledMethod;
 import repast.simphony.random.RandomHelper;
 import repast.simphony.space.continuous.ContinuousSpace;
+import repast.simphony.space.graph.Network;
+import repast.simphony.space.graph.RepastEdge;
+import repast.simphony.util.ContextUtils;
 
 //This class is the implementation of the Relay class. There is not a strict definition on the paper and this
 //is how i figured it out. Every relay acts also as perturbation generator. 
@@ -28,7 +31,6 @@ public class Relay {
 	
 	//The topics list, containing all the subscribed ones.
 	private Set<String> topics;
-	
 	
 	private int id; 
 	private double pertGen; //A parameters (expressed as % between 0 and 1) that considers at a certain tick
@@ -88,21 +90,22 @@ public class Relay {
     }
     
 	//Custom methods
+    public boolean addTopic(String topic) {
+    	return topics.add(topic);
+    }
+    
     public void addPerturbation(Wavefront p) {
     	//When a perturbation(and therefore a wavefront) is generated the Manager(aether) will enqueue them
     	//Into the incoming Wavefront List, having the Relays to handle them.
     	incomingWavefronts.add(p);
     }
     
-    public boolean addTopic(String topic) {
-    	return topics.add(topic);
-    }
-    
 	@ScheduledMethod(start = 1, interval = 1)
 	//This is the main process of the Relay. It handles the reception of incoming wavefronts and the random generation of some of them
+	//It covers all the necessary operation that are not described on the paper.
 	public void step() {
-		
-		//The list toRemove has the task of keeping track of all the wavefronts received during this current tick.
+		//The list toRemove has the task of keeping track of all the wavefronts received during this current tick.ù
+		//Removing them while looping might lead to inconsistencies.
 		List<Wavefront> toRemove = new ArrayList<Wavefront>();
 		for (Wavefront w : incomingWavefronts) {
 			//The live method of the wavefront returns the message which is carring if has reached the observer, null otherwise.
@@ -114,16 +117,20 @@ public class Relay {
 				toRemove.add(w);
 			}
 		}
+		
 		for (Wavefront w : toRemove) {
 			incomingWavefronts.remove(w);
 		}
 
 		//Perturbation generation process. If the Relay decides to generate one, it informs the Manager to create and handle it.
+		//Here with probabilities of 50%, 25% and 25% the message is generated as broadcast, uni/multicast or for the pub/sub arch.
+		//I decided to fix arbitrarily these probabilities, as they don't really change the evaluation of the process.
 		if (!this.stopGen && RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-pertGen)) {
 			Perturbation tmp;
 			
 			if (RandomHelper.nextDoubleFromTo(0.0, 1.0) > 0.5) {
 				if (RandomHelper.nextDoubleFromTo(0.0, 1.0) > 0.5) {
+					//Uni/Multicast, random number of dest picked randomly from the Manager, which is the only one who knows the active relays
 					Set<Relay> dest = new HashSet<Relay>();
 					int count = RandomHelper.nextIntFromTo(1, 3);
 					while (count != dest.size()) 
@@ -131,9 +138,11 @@ public class Relay {
 					
 					tmp =  new Perturbation(this, frontier.get(this), RandomHelper.nextIntFromTo(0, 1500), dest);
 				} else {
+					//Pub/Sub message, on a random topic picked from the Manager
 					tmp =  new Perturbation(this, frontier.get(this), RandomHelper.nextIntFromTo(0, 1500), aether.getRandomTopic());
 				}
 			} else {
+				//Classi broadcast message
 				tmp =  new Perturbation(this, frontier.get(this), RandomHelper.nextIntFromTo(0, 1500));
 			}
 			
@@ -144,12 +153,12 @@ public class Relay {
 	
 	public void onSenseMessageRelayII(Perturbation p) {
 		Relay tmpR = p.getSource();
-		if (!tmpR.equals(this)) { //No relays cares about perturbations sent from himself (if they have been forwarded of course)
+		if (!tmpR.equals(this)) { //No relays cares about perturbations sent from himself (they have been forwarded of course)
 			if (frontier.get(tmpR) == null) {
 				//frontier.put(tmpR, 1); //Once i used this line to initialize the correspondent expected value for each relay.
 				
 				//However, when a new Relay joins, it can not be aware of the previous perturbations (by definition, they
-				//don't leave disturbance behind them) therefore, the first message recived from a source, is the head of the frontier.
+				//don't leave disturbance behind them) therefore, the first message got from a source becames the head of the frontier.
 				frontier.put(tmpR, p.getRef());
 			}
 			
@@ -163,6 +172,7 @@ public class Relay {
 				boolean changes = true;
 				while (!bag.isEmpty() && changes) {
 					changes = false;
+					//I need to act as above. Removing a node while looping might lead to inconsitencies
 					List<Perturbation> toRemove = new ArrayList<Perturbation>();
 					
 					for (Perturbation q : bag) {
@@ -171,7 +181,7 @@ public class Relay {
 							aether.generatePerturbation(this, q);
 							
 							if (q.getTopic() != null) {
-								//this message has been sent by a Pub, check the topic to see if i am subscripted.
+								//this message has been sent by a publisher, check the topic to see if i am subscripted.
 								if (this.topics.contains(q.getTopic())) {
 									//I am subscribed
 									consume_upcall(q); 
@@ -182,6 +192,18 @@ public class Relay {
 								//this message is destinated to me (and possibily some other Relays)
 								recv_upcall(q);
 							}
+							
+							//update the frontier
+							Network<Object> net = (Network<Object>) ContextUtils.getContext(this).getProjection("messagesNetwork");
+								
+							for (RepastEdge e : net.getEdges(this)) {
+								if (e.getSource().equals(this))
+									net.removeEdge(e);
+							}
+							
+							if (aether.active((q.getSource())))
+								net.addEdge(q.getSource(), this);
+							
 							
 							frontier.replace(tmpR, nextRef(q));
 							toRemove.add(q);
@@ -197,10 +219,12 @@ public class Relay {
 		}
 	}
 	
+	//Here the code for getting a message to a subscripted topic
 	public void consume_upcall(Perturbation p) {
 		System.out.println(this + " recived a message from " + p.getSource() + " with the topic " + p.getTopic());
 	}
 	
+	//Here the code for getting a private uni/multicast
 	public void recv_upcall(Perturbation p) {
 		System.out.println(this + " recived a private message from " + p.getSource());
 	}
@@ -212,6 +236,7 @@ public class Relay {
 			return p.getRef()+1;
 	}
 	
+	//Auxiliary functions
 	public void stopPerturbations() {
 		this.stopGen = true;
 	} 
@@ -231,7 +256,6 @@ public class Relay {
 
 		for (Map.Entry<Relay, Integer> entry : this.frontier.entrySet()) {
 			if ((cmp.frontier.get(entry.getKey()) != null && (int) entry.getValue() != cmp.frontier.get(entry.getKey()))) {
-				System.out.println(cmp.frontier.get(entry.getKey())+ " " + entry.getValue() + " =/= " + cmp.frontier.get(entry.getKey()));
 				return false;
 			}
 		}
