@@ -194,22 +194,16 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		return this.activeRelays.contains(r);
 	}
 
-	//The generatePerturbation simply puts "a reminder". The Wavefront will be processed by the next method, with least priority
-	//on the Scheduler. This wrapper is possibly called by any Relay while some have already been executed and some still have to 
-	//(Sequential execution). Having a wrapper simulates somehow a parallel implementation, where all the Relays are aware
-	//of a perturbation in the same moment (even if still sequential).
-	public void generatePerturbation(Relay src, Perturbation msg) {
-		Wavefront probe = new Wavefront(src, msg, 0, minDistancePerTick, maxDistancePerTick, maxWavefrontLife);
-		newestWavefront.add(probe);
-	}
-
 	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.FIRST_PRIORITY)
 	public void run() {
+		
+		//Generate a new Relay
 		if (RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-this.spawnProb) && this.activeRelays.size() < this.nodeMaxCount) {
 			this.addRelay(new Relay(this.space, this, nodeIndex++, pertGen));
 			System.out.println("Added");
 		}
 		
+		//Destroy a Relay
 		if (RandomHelper.nextDoubleFromTo(0.0, 1.0) > (1.0-this.leaveProb) && this.activeRelays.size() > this.nodeMinCount) {
 			int element = RandomHelper.nextIntFromTo(0, this.activeRelays.size());
 			Relay item = this.activeRelays.iterator().next();
@@ -224,6 +218,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 			System.out.println("Removed");
 		}
 		
+		//Check if we reached the limit of the execution
 		if (scheduler.getTickCount() == totalTick) {
 			//Stop the generation of messages, to allow the wavefront to syncronize
 			for(Relay relay : activeRelays) {
@@ -231,6 +226,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 			}
 		}
 		
+		//Check if we eventually synchronized everything
 		if (scheduler.getTickCount() >= totalTick ) {
 			//take one random relay as the ground truth for our frontier.
 
@@ -247,7 +243,7 @@ public class WavefrontManager implements ContextBuilder<Object>{
 				for(Relay relay : activeRelays) {
 					relay.printFrontier();
 				}
-				System.out.println("Frontiers sync'd " + result );
+				System.out.println("Frontiers consistency: " + result );
 				RunEnvironment.getInstance().endRun();
 			}
 		}
@@ -257,6 +253,15 @@ public class WavefrontManager implements ContextBuilder<Object>{
 			this.kbyteProcessed += r.getBytesProcessed();
 			this.kbyteReceived += r.getBytesReceived();
 		}
+	}
+	
+	//The generatePerturbation simply puts "a reminder". The Wavefront will be processed by the next method, with least priority
+	//on the Scheduler. This wrapper is possibly called by any Relay while some have already been executed and some still have to 
+	//(Sequential execution). Having a wrapper simulates somehow a parallel implementation, where all the Relays are aware
+	//of a perturbation in the same moment (even if still sequential).
+	public void generatePerturbation(Relay src, Perturbation msg) {
+		Wavefront probe = new Wavefront(src, msg, 0, minDistancePerTick, maxDistancePerTick, maxWavefrontLife);
+		newestWavefront.add(probe);
 	}
 	
 	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.LAST_PRIORITY)
