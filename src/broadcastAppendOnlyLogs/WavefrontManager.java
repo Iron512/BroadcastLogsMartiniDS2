@@ -23,8 +23,6 @@ import repast.simphony.space.continuous.ContinuousSpace;
 import repast.simphony.space.continuous.RandomCartesianAdder;
 import repast.simphony.space.continuous.WrapAroundBorders;
 import repast.simphony.space.graph.Network;
-import repast.simphony.space.graph.RepastEdge;
-import repast.simphony.util.ContextUtils;
 
 //This class is an artifice developed to simulate the "medium" where perturbation are transfered.
 //It acts as a network for the other Relays, which doesn't have any clue on the topology nor the members.
@@ -62,6 +60,10 @@ public class WavefrontManager implements ContextBuilder<Object>{
 	private Map<Relay, Map<Relay, Double>> distances; //Its a full symmetrical matrix containing the distances
 	//between each member of the network. Gets updated each time a new node enters in the game
 	private List<String> topics;
+	
+	//Evaluation Metrics
+	private long kbyteReceived;
+	private long kbyteProcessed;
 	
 	//Standard method definition (constructor, no need for equals and hashcode)
 	public Context<Object> build(Context<Object> context) {
@@ -122,6 +124,9 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		netBuilder.buildNetwork();
 		
 		this.context = context;
+
+		this.kbyteProcessed = 0;
+		this.kbyteReceived = 0;
 		
 		//Initialize nodes
 		int activeNodes = RandomHelper.nextIntFromTo(nodeMinCount, nodeMaxCount);
@@ -246,6 +251,12 @@ public class WavefrontManager implements ContextBuilder<Object>{
 				RunEnvironment.getInstance().endRun();
 			}
 		}
+		
+		//Collect all the data
+		for (Relay r: activeRelays) {
+			this.kbyteProcessed += r.getBytesProcessed();
+			this.kbyteReceived += r.getBytesReceived();
+		}
 	}
 	
 	@ScheduledMethod(start = 1, interval = 1, priority = ScheduleParameters.LAST_PRIORITY)
@@ -295,5 +306,17 @@ public class WavefrontManager implements ContextBuilder<Object>{
 		}
 		
 		return toRtn;
+	}
+	
+	public double getBytesReceived() {
+		return this.kbyteReceived;
+	}
+	
+	public double getBytesProcessed() {
+		return this.kbyteProcessed;
+	}
+	
+	public double getBytesUseless() {
+		return this.kbyteReceived - this.kbyteProcessed;
 	}
 }

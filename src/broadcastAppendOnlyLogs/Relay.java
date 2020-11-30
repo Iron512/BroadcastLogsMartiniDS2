@@ -40,6 +40,10 @@ public class Relay {
 	//stop generating perturbations, in order let all the existing ones to reach their destination. This clearly doesn't break
 	//the 2nd property, which requirest that the all the perturbations EVENTUALLY reach all the observers.
 	
+	//Evaluation Metrics. Here some variables have been defined to evaluate the protocol.
+	private int byteProcessed;
+	private int byteReceived;
+	
 	//Standard method definition (constructor, equals/hashcode, toString)
 	public Relay(ContinuousSpace<Object> space, WavefrontManager aether, int id, double pertGen) {
 		this.space = space;
@@ -63,7 +67,7 @@ public class Relay {
     }
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, pertGen);
+		return Objects.hash(id);
 	}
     @Override
     public String toString() { 
@@ -104,6 +108,9 @@ public class Relay {
 	//This is the main process of the Relay. It handles the reception of incoming wavefronts and the random generation of some of them
 	//It covers all the necessary operation that are not described on the paper.
 	public void step() {
+		this.byteProcessed = 0;
+		this.byteReceived = 0;
+		
 		//The list toRemove has the task of keeping track of all the wavefronts received during this current tick.ù
 		//Removing them while looping might lead to inconsistencies.
 		List<Wavefront> toRemove = new ArrayList<Wavefront>();
@@ -208,6 +215,9 @@ public class Relay {
 							frontier.replace(tmpR, nextRef(q));
 							toRemove.add(q);
 							changes = true;
+							
+							byteProcessed += p.getDimension();
+							byteReceived += p.getDimension();
 						}
 					}
 					
@@ -215,6 +225,8 @@ public class Relay {
 						bag.remove(r);
 					}
 				}
+			} else {
+				byteReceived += p.getDimension();
 			}
 		}
 	}
@@ -261,5 +273,28 @@ public class Relay {
 		}
 
 		return true;
+	}
+	
+	//Evaluation Metrics Methods
+	public double getBytesReceived() {
+		return this.byteReceived/1024.0;
+	}
+	
+	public double getBytesProcessed() {
+		return this.byteProcessed/1024.0;
+	}
+	
+	public int getBagSize() {
+		return this.bag.size();
+	}
+	
+	public int getMessagesCount() {
+		int count = 0;
+
+		for (Map.Entry<Relay, Integer> entry : this.frontier.entrySet()) {
+			if (!entry.getKey().equals(this))
+				count += entry.getValue();
+		}
+		return count;
 	}
 }
