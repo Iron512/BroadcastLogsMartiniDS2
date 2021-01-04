@@ -1,0 +1,90 @@
+{
+	"Dimensions" : {
+		"X":50,
+		"Y":50
+	},
+	"Duration": 5000,
+	"Network": "RelayII",
+	"FixedRelays": [
+		{
+			"id" : 0,
+			"X": 10.0,
+			"Y": 25.0,
+			"PerturbationProb" : 0.05,
+			"Latency": 15.0,
+			"Jitter": 3.0,
+			"SpawnProb": 0.011,
+			"LeaveProb" : 0.01
+		},
+		{
+			"id" : 1,
+			"X": 40.0,
+			"Y": 25.0,
+			"PerturbationProb" : 0.05,
+			"Latency": 15.0,
+			"Jitter": 3.0,
+			"SpawnProb": 0.011,
+			"LeaveProb" : 0.01
+		},
+		{
+			"id" : 2,
+			"X": 25.0,
+			"Y": 40.0,
+			"PerturbationProb" : 0.0,
+			"Latency": 15.0,
+			"Jitter": 3.0,
+			"SpawnProb": 0.011,
+			"LeaveProb" : 0.01
+		},
+		{
+			"id" : 3,
+			"X": 25.0,
+			"Y": 10.0,
+			"PerturbationProb" : 0.0,
+			"Latency": 15.0,
+			"Jitter": 3.0,
+			"SpawnProb": 0.011,
+			"LeaveProb" : 0.01
+		},
+		{
+			"id" : 4,
+			"X": 14.4,
+			"Y": 14.4,
+			"PerturbationProb" : 0.0,
+			"Latency": 15.0,
+			"Jitter": 3.0,
+			"SpawnProb": 0.011,
+			"LeaveProb" : 0.01
+		},
+		{
+			"id" : 5,
+			"X": 35.6,
+			"Y": 14.4,
+			"PerturbationProb" : 0.05,
+			"Latency": 15.0,
+			"Jitter": 3.0,
+			"SpawnProb": 0.011,
+			"LeaveProb" : 0.01
+		},
+		{
+			"id" : 6,
+			"X": 14.4,
+			"Y": 35.6,
+			"PerturbationProb" : 0.0,
+			"Latency": 15.0,
+			"Jitter": 3.0,
+			"SpawnProb": 0.011,
+			"LeaveProb" : 0.01
+		},
+		{
+			"id" : 7,
+			"X": 35.6,
+			"Y": 35.6,
+			"PerturbationProb" : 0.0,
+			"Latency": 15.0,
+			"Jitter": 3.0,
+			"SpawnProb": 0.011,
+			"LeaveProb" : 0.01
+		}
+	]
+}

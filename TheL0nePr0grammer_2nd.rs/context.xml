@@ -1,0 +1,9 @@
+<context id="TheL0nePr0grammer_2nd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://repast.org/scenario/context">
+	
+	<projection type="network" id="broadcastNet"></projection>
+	<projection type="network" id="directNet"></projection>
+	<projection type="network" id="pubNet"></projection>
+	
+	<projection type="network" id="arqNetwork"></projection>
+	<projection type="continuous space" id="space"/>  	
+</context>
